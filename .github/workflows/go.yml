@@ -23,7 +23,7 @@ jobs:
     - name: Build app
       run: go build main.go    
     - name: Copy to server
-       uses: appleboy/scp-action@master
+      uses: appleboy/scp-action@master
        with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
@@ -32,7 +32,7 @@ jobs:
         target: "/srv/unix_sect_bot_v2"
         rm: true
     - name: run docker-compose
-       uses: appleboy/ssh-action@master
+      uses: appleboy/ssh-action@master
         with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
