@@ -16,11 +16,12 @@ import (
 )
 
 var (
-	users     map[string]interface{} // map ник - статус
-	names     map[string]interface{} // map имя - ник
-	listUsers map[string]interface{} // map имя - статус, для отчета
-	statusMsg string
-	parms     map[string]interface{}
+	users       map[string]interface{} // map ник - статус
+	names       map[string]interface{} // map имя - ник
+	listUsers   map[string]interface{} // map имя - статус, для отчета
+	chatIdNames map[string]int64       // map ник - Id чата с которого присылают статус
+	statusMsg   string
+	parms       map[string]interface{}
 )
 
 type listFromJson struct { //под этими именами сохраняется в структуре. Имена переменных должны совпадать с key map names
@@ -33,15 +34,18 @@ type listFromJson struct { //под этими именами сохраняет
 }
 
 type parmsFromJson struct {
-	Token     string
-	SendTime1 string
-	SendTime2 string
-	ChatID    string
+	Token      string
+	SendTime1  string
+	SendTime2  string
+	SendTime11 string //for notification at morning
+	SendTime22 string //for notification at evening
+	ChatID     string
 }
 
 func main() {
 	parms = make(map[string]interface{})
-	parms = readFromFileParms("/app/mnt/parms.json")
+	//	parms = readFromFileParms("/app/mnt/parms.json")
+	parms = readFromFileParms("./parms.json")
 	chIDstr := parms["ChatID"].(string)
 	chID, err1 := strconv.ParseInt(chIDstr, 10, 64)
 	if err1 != nil {
@@ -49,10 +53,12 @@ func main() {
 	}
 
 	names = make(map[string]interface{}) // настоящие имена
-	names = readFromFile("/app/mnt/names.json")
+	//	names = readFromFile("/app/mnt/names.json")
+	names = readFromFile("./names.json")
 
 	listUsers = make(map[string]interface{}) // map для отчета
-	listUsers = readFromFile("/app/mnt/listUsers.json")
+	//	listUsers = readFromFile("/app/mnt/listUsers.json")
+	listUsers = readFromFile("./listUsers.json")
 
 	users = make(map[string]interface{}) // ники в telegram
 	for key1, val1 := range listUsers {
@@ -64,6 +70,8 @@ func main() {
 
 		}
 	}
+
+	chatIdNames = make(map[string]int64)
 
 	// подключаемся к боту с помощью токена
 	bot, err := tgbotapi.NewBotAPI(parms["Token"].(string))
@@ -96,6 +104,7 @@ func main() {
 
 		userNick := update.Message.From.UserName
 		userStatus := update.Message.Text
+		userChatId := update.Message.Chat.ID
 
 		//sendUserState := tgbotapi.NewMessage(update.Message.Chat.ID, userState)
 
@@ -108,9 +117,12 @@ func main() {
 			case "send": // пошлет в чат chatID статус
 				go sendNotifications(bot, chID)
 			case "read":
-				listUsers = readFromFile("/app/mnt/listUsers.json")
+				//				listUsers = readFromFile("/app/mnt/listUsers.json")
+				listUsers = readFromFile("./listUsers.json")
 			case "write":
 				writeToFile(listUsers)
+			case "sendto":
+				sendPersonalNotif(bot)
 			}
 		} else {
 			if _, ok := users[userNick]; ok {
@@ -123,10 +135,24 @@ func main() {
 					}
 				}
 				writeToFile(listUsers)
+				chatIdNames[userNick] = userChatId
 			}
 		}
 	}
 }
+
+func sendPersonalNotif(bot *tgbotapi.BotAPI) {
+	for key1, val1 := range chatIdNames {
+		for key2, val2 := range users {
+			if key1 == key2 {
+				stat := val2.(string)
+				msgStat := "Ваш статус: " + stat
+				bot.Send(tgbotapi.NewMessage(val1, msgStat))
+			}
+		}
+	}
+}
+
 func sendNotifications(bot *tgbotapi.BotAPI, chID int64) {
 	var stringMap string
 	stringMap = mapToList(listUsers)
@@ -145,6 +171,14 @@ func sendReport(bot *tgbotapi.BotAPI, chID int64) {
 		}
 		if cTime == parms["SendTime2"].(string) {
 			sendNotifications(bot, chID)
+			time.Sleep(time.Minute * 1)
+		}
+		if cTime == parms["SendTime11"].(string) {
+			sendPersonalNotif(bot)
+			time.Sleep(time.Minute * 1)
+		}
+		if cTime == parms["SendTime22"].(string) {
+			sendPersonalNotif(bot)
 			time.Sleep(time.Minute * 1)
 		}
 	}
@@ -208,7 +242,8 @@ func writeToFile(m map[string]interface{}) {
 	if err2 != nil {
 		panic(err2)
 	}
-	err3 := ioutil.WriteFile("/app/mnt/listUsers.json", jsn, 0644)
+	//	err3 := ioutil.WriteFile("/app/mnt/listUsers.json", jsn, 0644)
+	err3 := ioutil.WriteFile("./listUsers.json", jsn, 0644)
 	if err3 != nil {
 		panic(err3)
 	}
