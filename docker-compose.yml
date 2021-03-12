@@ -1,0 +1,7 @@
+unix_sect_bot:
+  build: .
+  volumes:
+    - unixbot:/app/mnt
+volumes:
+  unixbot:
+    external: true
