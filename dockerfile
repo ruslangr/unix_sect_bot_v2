@@ -1,6 +1,5 @@
 FROM golang:latest
-RUN mkdir /app
-RUN mkdir /app/mnt
+RUN mkdir -p /app/mnt
 ADD . /app/
 WORKDIR /app
 ENV TZ=Asia/Yekaterinburg
